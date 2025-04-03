@@ -1,0 +1,20 @@
+<persistence xmlns="http://java.sun.com/xml/ns/persistence" version="2.0">
+  <persistence-unit name="test-pu" transaction-type="RESOURCE_LOCAL">
+    <provider>org.hibernate.jpa.HibernatePersistenceProvider</provider>
+    <class>org.keycloak.models.jpa.entities.UserEntity</class>
+    <class>org.keycloak.models.jpa.entities.UserAttributeEntity</class>
+    <class>org.keycloak.models.jpa.entities.CredentialEntity</class>
+    <class>org.keycloak.models.jpa.entities.UserRoleMappingEntity</class>
+    <class>org.keycloak.models.jpa.entities.FederatedIdentityEntity</class>
+    <class>org.keycloak.models.jpa.entities.UserRequiredActionEntity</class>
+    <properties>
+      <property name="javax.persistence.jdbc.driver" value="org.h2.Driver" />
+      <property name="javax.persistence.jdbc.url" value="jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL" />
+      <property name="javax.persistence.jdbc.user" value="sa" />
+      <property name="javax.persistence.jdbc.password" value="" />
+      <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect" />
+      <property name="hibernate.globally_quoted_identifiers" value="true" />
+      <property name="hibernate.hbm2ddl.auto" value="create-drop" />
+    </properties>
+  </persistence-unit>
+</persistence>

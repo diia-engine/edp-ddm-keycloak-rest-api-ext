@@ -18,6 +18,8 @@ package com.epam.digital.data.platform.keycloak.rest.api.ext;
 
 import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.SearchUserRequestDto;
 import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.SearchUsersByEqualsAndStartsWithAttributesRequestDto;
+import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.SearchUsersByRoleAndAttributesRequestDto;
+import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.SearchUsersByRoleAndAttributesResponseDto;
 import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.v2.SearchUsersByAttributesRequestDto;
 import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.v2.SearchUsersByAttributesResponseDto;
 import com.epam.digital.data.platform.keycloak.rest.api.ext.dto.v2.SearchUsersByAttributesResponseDto.Pagination;
@@ -37,6 +39,7 @@ import org.jboss.resteasy.annotations.cache.NoCache;
 import org.jboss.resteasy.spi.HttpRequest;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.UserProvider;
 import org.keycloak.models.utils.ModelToRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.keycloak.services.resource.RealmResourceProvider;
@@ -111,74 +114,11 @@ public class UserApiProvider extends AdminRoot implements RealmResourceProvider 
   }
 
   /**
-   * API for searching requests by attributes.
-   * <p>
-   * Pagination implemented with using of {@code limit} as a page size and {@code continueToken}.
-   * Any response will provide a continue token that must be used for the next page. Returns -1 on
-   * the last page. If -1 was passed to a request as continue token it will return empty list of
-   * users with {@code continueToken=-1}. If 0 or {@code null} was passed as continue token it will
-   * return first page. If 0 or {@code null} was passed as {@code limit} then pagination is disabled
-   * and request will return all found users.
-   *
-   * @param request    The http request itself
-   * @param requestDto {@link SearchUsersByAttributesRequestDto} representation of request body
-   * @return For example there is a list of users with their attributes:<br/>
-   * {@code user1 - attribute1=value1,hierarchyCode=100}<br/>
-   * {@code user2 - attribute1=value2,hierarchyCode=101.200}<br/>
-   * {@code user3 - attribute1=value3,hierarchyCode=101.201.300}<br/>
-   * {@code user4 - attribute1=value1,hierarchyCode=100.200.300}<br/>
-   * {@code user5 - hierarchyCode=100.200.300.400}
-   * <p>
-   * <li>Request <pre>{@code {
-   *   "attributesEquals":{
-   *     "attribute1":["value1", "value2"]
-   *   }
-   * }}</pre> will return
-   * {@code user1}, {@code user2} and {@code user4} as they have attribute with name
-   * {@code attribute1} that matches the {@code attributesEquals} request.
-   * <p>
-   * <li>Request
-   * <pre>{@code {
-   *   "attributesEquals":{
-   *     "attribute1":["value1", "value2"],
-   *     "hierarchyCode":["100"]
-   *   }
-   * }}</pre> will return only {@code user1} as only this user have both attributes that match the
-   * request.
-   * <p>
-   * <li>Request <pre>{@code {
-   *   "attributesStartsWith":{
-   *     "hierarchyCode":["100", "101.201"]
-   *   }
-   * }}</pre> will return {@code user1},{@code user3}, {@code user4} and {@code user5} as they all
-   * have attribute with name {@code hierarchyCode} that matches the {@code attributesStartsWith}
-   * request.
-   * <p>
-   * <li>Request <pre>{@code {
-   *   "attributesEquals":{
-   *     "attribute1":["value1", "value2"]
-   *   },
-   *   "attributesStartsWith":{
-   *     "hierarchyCode":["100", "101.201"]
-   *   }
-   * }}</pre> will return {@code user1} and {@code user4}.
-   * <p>
-   * <li>Request <pre>{@code {
-   *   "attributesThatAreStartFor":{
-   *     "hierarchyCode":["100.200.300", "101"]
-   *   }
-   * }}</pre> will return {@code user1} and {@code user4} because these both users have attribute
-   * {@code hierarchyCode} that are start for {@code 100.200.300}
-   * <p>
-   * <li>Request <pre>{@code {
-   *   "attributesStartsWith":{
-   *     "hierarchyCode":["100.200"]
-   *   },
-   *   "attributesThatAreStartFor":{
-   *     "hierarchyCode":["100.200.300.400"]
-   *   }
-   * }}</pre> will return {@code user4} and {@code user5}
+   * @deprecated Use
+   * {@link UserApiProvider#searchUsersByRoleAndAttributes(HttpRequest, SearchUsersByRoleAndAttributesRequestDto)}
+   * instead
    */
+  @Deprecated(forRemoval = true)
   @POST
   @Path("v2/search-by-attributes")
   @NoCache
@@ -246,6 +186,26 @@ public class UserApiProvider extends AdminRoot implements RealmResourceProvider 
     return SearchUsersByAttributesResponseDto.builder().users(foundUsers)
         .pagination(Pagination.builder().continueToken(continueToken.get()).build())
         .build();
+  }
+
+  @POST
+  @Path("search-by-role-and-attributes")
+  @NoCache
+  @Produces({MediaType.APPLICATION_JSON})
+  @Encoded
+  public SearchUsersByRoleAndAttributesResponseDto searchUsersByRoleAndAttributes(
+      @Context final HttpRequest request, SearchUsersByRoleAndAttributesRequestDto requestDto) {
+    final var realm = session.getContext().getRealm();
+    authenticateRealmAdminRequest(request.getHttpHeaders());
+    validateRequestRealm(request, realm.getName());
+
+    var provider = (ExtendedJpaUserProvider) session.getProvider(UserProvider.class);
+
+    var usersStream = provider.searchForUserStream(realm, requestDto);
+    var userRepresentations = usersStream.map(
+        userModel -> ModelToRepresentation.toRepresentation(session, realm, userModel)).collect(
+        Collectors.toList());
+    return SearchUsersByRoleAndAttributesResponseDto.builder().users(userRepresentations).build();
   }
 
   protected void validateRequestRealm(HttpRequest request, String realmName) {
